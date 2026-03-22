@@ -112,8 +112,8 @@ export default function Signup() {
           onChange={handleChange}
         >
           <option value="student">Student</option>
-          <option value="teacher">Teacher</option>
-          <option value="parent">Parent</option>
+          <option value="teacher">Therapist</option>
+          <option value="parent">Guardian</option>
         </select>
 
         <button type="submit" style={auth.button} disabled={loading}>

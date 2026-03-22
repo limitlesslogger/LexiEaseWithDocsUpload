@@ -1,15 +1,52 @@
+import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import ReadingSupportPanel from "./ReadingSupportPanel";
+import FloatingBrushTool from "./FloatingBrushTool";
+import { getReadingStyle, useReadingPreferences } from "./useReadingPreferences";
 
 const levels = [
   { label: "Letter", path: "/student/letter-level" },
   { label: "Word", path: "/student/word-level" },
   { label: "Sentence", path: "/student/sentence-level" },
   { label: "Docs", path: "/student/training-docs" },
+  { label: "Password", path: "/student/change-password" },
 ];
 
 export default function StudentLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [showSupport, setShowSupport] = useState(false);
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+  const [isBrushDown, setIsBrushDown] = useState(false);
+  const [brushPointer, setBrushPointer] = useState({ x: 0, y: 0 });
+  const [clearHighlightsVersion, setClearHighlightsVersion] = useState(0);
+  const {
+    preferences,
+    draftPreferences,
+    setDraftPreference,
+    setLivePreference,
+    applyPreferences,
+    resetPreferences,
+  } = useReadingPreferences();
+  const readingStyle = getReadingStyle(preferences);
+
+  useEffect(() => {
+    const stopInteractions = () => {
+      setIsBrushDown(false);
+    };
+
+    window.addEventListener("pointerup", stopInteractions);
+    return () => window.removeEventListener("pointerup", stopInteractions);
+  }, []);
+
+  useEffect(() => {
+    const movePointer = (event) => {
+      setBrushPointer({ x: event.clientX, y: event.clientY });
+    };
+
+    window.addEventListener("pointermove", movePointer);
+    return () => window.removeEventListener("pointermove", movePointer);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -17,11 +54,25 @@ export default function StudentLayout() {
   };
 
   const showToggle = location.pathname !== "/student/dashboard";
+  const brushVisible = Boolean(readingStyle.paintbrushEnabled);
 
   return (
-    <div style={styles.container}>
+    <div
+      style={{
+        ...styles.container,
+        background: readingStyle.colors.page,
+        color: readingStyle.colors.ink,
+        fontFamily: readingStyle.fontFamily,
+      }}
+    >
       {/* Top Header */}
-      <header style={styles.header}>
+      <header
+        style={{
+          ...styles.header,
+          background: readingStyle.colors.card,
+          borderBottom: `1px solid ${readingStyle.colors.border}`,
+        }}
+      >
        <div style={styles.left}>
   <div
     style={styles.logo}
@@ -59,15 +110,88 @@ export default function StudentLayout() {
           </div>
         )}
 
-        <button onClick={handleLogout} style={styles.logoutBtn}>
-          Logout
-        </button>
+        <div style={styles.rightActions}>
+          <button
+            type="button"
+            onClick={() => setShowSupport((prev) => !prev)}
+            style={styles.supportBtn}
+          >
+            Reading Tools
+          </button>
+          <button onClick={handleLogout} style={styles.logoutBtn}>
+            Logout
+          </button>
+        </div>
       </header>
 
       {/* Page Content */}
       <main style={styles.content}>
-        <Outlet />
+        {showSupport && (
+          <div style={styles.panelWrap}>
+            <ReadingSupportPanel
+              isCollapsed={isPanelCollapsed}
+              onToggleCollapse={() =>
+                setIsPanelCollapsed((prev) => !prev)
+              }
+              draftPreferences={draftPreferences}
+              setDraftPreference={setDraftPreference}
+              applyPreferences={applyPreferences}
+              resetPreferences={resetPreferences}
+            />
+          </div>
+        )}
+        <Outlet
+          context={{
+            preferences,
+            draftPreferences,
+            readingStyle,
+            setLivePreference,
+            isBrushDown,
+            setIsBrushDown,
+            brushState: {
+              color: readingStyle.brushColor,
+              opacity: readingStyle.brushOpacity,
+              size: readingStyle.brushSize,
+              mode: readingStyle.brushMode,
+            },
+            clearHighlightsVersion,
+          }}
+        />
       </main>
+      {brushVisible && (
+        <FloatingBrushTool
+          visible={brushVisible}
+          brushState={{
+            color: readingStyle.brushColor,
+            opacity: readingStyle.brushOpacity,
+            size: readingStyle.brushSize,
+            mode: readingStyle.brushMode,
+          }}
+          onUpdate={setLivePreference}
+          onClear={() => setClearHighlightsVersion((prev) => prev + 1)}
+          onClose={() => setLivePreference("paintbrushEnabled", false)}
+        />
+      )}
+      {brushVisible && isBrushDown && (
+        <div
+          style={{
+            ...styles.brushCursor,
+            width: readingStyle.brushSize,
+            height: readingStyle.brushSize,
+            left: brushPointer.x,
+            top: brushPointer.y,
+            borderColor: readingStyle.brushColor,
+            background: `${readingStyle.brushColor}${Math.round(
+              readingStyle.brushOpacity * 255
+            )
+              .toString(16)
+              .padStart(2, "0")}`,
+            transform: "translate(-50%, -50%) scale(1.08)",
+          }}
+        >
+          <span style={styles.cursorCore} />
+        </div>
+      )}
     </div>
   );
 }
@@ -108,6 +232,11 @@ const styles = {
   alignItems: "center",
   gap: 16,
 },
+  rightActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
 dashboardBtn: {
   background: "transparent",
   border: "1px solid #c7d2fe",
@@ -118,6 +247,16 @@ dashboardBtn: {
   cursor: "pointer",
   fontSize: 13,
 },
+  supportBtn: {
+    background: "#e8f0ff",
+    color: "#173a73",
+    border: "1px solid #bfd1ff",
+    padding: "8px 14px",
+    borderRadius: 999,
+    fontWeight: 700,
+    cursor: "pointer",
+    fontSize: 13,
+  },
 
   toggleBtn: {
     padding: "8px 16px",
@@ -146,5 +285,26 @@ dashboardBtn: {
     padding: 32,
     maxWidth: 1200,
     margin: "0 auto",
+  },
+  panelWrap: {
+    marginBottom: 20,
+  },
+  brushCursor: {
+    position: "fixed",
+    zIndex: 1190,
+    pointerEvents: "none",
+    borderRadius: "50%",
+    border: "2px solid rgba(15,23,42,0.18)",
+    boxShadow: "0 8px 20px rgba(15,23,42,0.15)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "transform 0.08s linear",
+  },
+  cursorCore: {
+    width: 6,
+    height: 6,
+    borderRadius: "50%",
+    background: "rgba(15,23,42,0.72)",
   },
 };

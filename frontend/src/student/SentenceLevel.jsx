@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { apiFetch } from "../api/api";
+import ReadingLens from "./ReadingLens";
 import { computeVisualHesitationScore } from "../utils/visionUtils";
+import {
+  applyBrushToKeys,
+  getTargetsWithinBrush,
+} from "./brushUtils";
 import {
   initializeEyeTracking,
   startSegment,
@@ -15,6 +21,13 @@ import {
 } from "../utils/syllabify";
 
 function SentenceLevel() {
+  const outletContext = useOutletContext();
+  const readingStyle = outletContext?.readingStyle;
+  const setLivePreference = outletContext?.setLivePreference;
+  const isBrushDown = outletContext?.isBrushDown;
+  const setIsBrushDown = outletContext?.setIsBrushDown;
+  const brushState = outletContext?.brushState;
+  const clearHighlightsVersion = outletContext?.clearHighlightsVersion;
   const [sentence, setSentence] = useState(null);
   const [sentenceId, setSentenceId] = useState(null);
   const [focusWords, setFocusWords] = useState([]);
@@ -26,6 +39,7 @@ function SentenceLevel() {
   const [selectedWord, setSelectedWord] = useState("");
   const [selectedSyllables, setSelectedSyllables] = useState([]);
   const [selectedPronunciation, setSelectedPronunciation] = useState("");
+  const [paintedWords, setPaintedWords] = useState({});
 
   const recognitionRef = useRef(null);
   const spokenRef = useRef("");
@@ -35,6 +49,8 @@ function SentenceLevel() {
   const sentenceRef = useRef(null);
   const shownAtRef = useRef(null);
   const videoRef = useRef(null);
+  const lensAreaRef = useRef(null);
+  const wordRefs = useRef({});
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -102,6 +118,7 @@ function SentenceLevel() {
       const res = await apiFetch("/api/sentences/next");
       console.log("✅ Sentence loaded:", res);
       setSentence(res.sentence);
+      setPaintedWords({});
       setSentenceId(res.sentenceId);
       setFocusWords(res.focusWords || []);
       setSourceDocTitle(res.sourceDocTitle || "");
@@ -123,11 +140,39 @@ function SentenceLevel() {
     loadSentence();
   }, []);
 
+  useEffect(() => {
+    setPaintedWords({});
+  }, [clearHighlightsVersion]);
+
   const handleWordClick = async (clickedWord) => {
     const syllableParts = await splitIntoSyllables(clickedWord);
     setSelectedWord(clickedWord);
     setSelectedSyllables(syllableParts);
     setSelectedPronunciation(getGoogleStylePronunciation(syllableParts));
+  };
+
+  const applyBrushAtPoint = (clientX, clientY) => {
+    const keys = getTargetsWithinBrush(
+      wordRefs.current,
+      { x: clientX, y: clientY },
+      brushState?.size || readingStyle?.brushSize || 24
+    );
+
+    applyBrushToKeys(
+      keys,
+      brushState?.mode || "paint",
+      brushState?.color || readingStyle?.brushColor || readingStyle?.colors.ink,
+      setPaintedWords
+    );
+  };
+
+  const paintWordKey = (key) => {
+    applyBrushToKeys(
+      [key],
+      brushState?.mode || "paint",
+      brushState?.color || readingStyle?.brushColor || readingStyle?.colors.ink,
+      setPaintedWords
+    );
   };
 
   /* =========================
@@ -362,11 +407,34 @@ function SentenceLevel() {
      UI
   ========================== */
   if (!sentence)
-    return <div style={styles.loading}>Preparing your session…</div>;
+    return (
+      <div
+        style={{
+          ...styles.loading,
+          color: readingStyle?.colors.muted || styles.loading.color,
+          fontFamily: readingStyle?.fontFamily || styles.page.fontFamily,
+        }}
+      >
+        Preparing your session...
+      </div>
+    );
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
+    <div
+      style={{
+        ...styles.page,
+        background: readingStyle?.colors.page || styles.page.background,
+        color: readingStyle?.colors.ink || "#1e293b",
+        fontFamily: readingStyle?.fontFamily || styles.page.fontFamily,
+      }}
+    >
+      <div
+        style={{
+          ...styles.card,
+          background: readingStyle?.colors.card || styles.card.background,
+          border: `1px solid ${readingStyle?.colors.border || "#dbe4f0"}`,
+        }}
+      >
         <video
           ref={videoRef}
           autoPlay
@@ -375,38 +443,201 @@ function SentenceLevel() {
           style={{ display: "none" }}
         />
 
-        <p style={styles.subtitle}>Read this sentence clearly</p>
+        <p
+          style={{
+            ...styles.subtitle,
+            color: readingStyle?.colors.ink || styles.subtitle.color,
+            fontFamily: readingStyle?.fontFamily || styles.page.fontFamily,
+            fontSize: `${22 * (readingStyle?.fontScale || 1)}px`,
+            letterSpacing: readingStyle?.letterSpacing || "0.08em",
+            wordSpacing: readingStyle?.wordSpacing || "0.18em",
+            lineHeight: readingStyle?.lineHeight || 1.65,
+          }}
+        >
+          Read this sentence clearly
+        </p>
 
-        <div style={styles.sentenceWrap}>
-          <h1 style={styles.sentence}>
+        <div
+          ref={lensAreaRef}
+          onPointerDown={(event) => {
+            if (!readingStyle?.paintbrushEnabled) return;
+            setIsBrushDown?.(true);
+            applyBrushAtPoint(event.clientX, event.clientY);
+          }}
+          onPointerMove={(event) => {
+            if (!readingStyle?.paintbrushEnabled || !isBrushDown) return;
+            applyBrushAtPoint(event.clientX, event.clientY);
+          }}
+          style={{
+            ...styles.sentenceWrap,
+            background: readingStyle?.colors.card || styles.sentenceWrap.background,
+            color: readingStyle?.colors.ink || styles.sentenceWrap.color,
+            border: `2px solid ${readingStyle?.colors.border || "#c7d2fe"}`,
+            boxShadow: "none",
+            touchAction: readingStyle?.paintbrushEnabled ? "none" : "auto",
+            userSelect: readingStyle?.paintbrushEnabled ? "none" : "text",
+          }}
+        >
+          <h1
+            style={{
+              ...styles.sentence,
+              fontFamily: readingStyle?.fontFamily || styles.page.fontFamily,
+              fontSize: `${36 * (readingStyle?.fontScale || 1)}px`,
+              letterSpacing: readingStyle?.letterSpacing || "0.08em",
+              wordSpacing: readingStyle?.wordSpacing || "0.18em",
+              lineHeight: readingStyle?.lineHeight || 1.65,
+            }}
+          >
             {(sentence || "").split(" ").map((w, i) => (
               <span
                 key={`${w}-${i}`}
-                style={styles.wordChip}
-                onClick={() => handleWordClick(w)}
+                ref={(element) => {
+                  const key = `${w}-${i}`;
+                  if (element) {
+                    wordRefs.current[key] = element;
+                  } else {
+                    delete wordRefs.current[key];
+                  }
+                }}
+                onPointerDown={() => {
+                  if (!readingStyle?.paintbrushEnabled) return;
+                  setIsBrushDown?.(true);
+                  paintWordKey(`${w}-${i}`);
+                }}
+                onPointerEnter={() => {
+                  if (!readingStyle?.paintbrushEnabled || !isBrushDown) return;
+                  paintWordKey(`${w}-${i}`);
+                }}
+                style={{
+                  ...styles.wordChip,
+                  background:
+                    selectedWord === w
+                      ? readingStyle?.focusColor || "#ffe28a"
+                      : "transparent",
+                  color:
+                    paintedWords[`${w}-${i}`] ||
+                    readingStyle?.colors.ink ||
+                    styles.sentenceWrap.color,
+                  transform:
+                    readingStyle?.magnifierEnabled && selectedWord === w
+                      ? "scale(1.12)"
+                      : "scale(1)",
+                  transition: "transform 0.18s ease, background 0.18s ease, color 0.18s ease",
+                  borderRadius: 12,
+                  padding: "0 6px",
+                }}
+                onClick={() => {
+                  if (readingStyle?.paintbrushEnabled) return;
+                  handleWordClick(w);
+                }}
               >
                 {w}{" "}
               </span>
             ))}
           </h1>
+          <ReadingLens
+            visible={readingStyle?.magnifierEnabled}
+            containerRef={lensAreaRef}
+            size={readingStyle?.lensSize || 180}
+            zoom={readingStyle?.lensZoom || 1.35}
+            shape={readingStyle?.lensShape || "rounded"}
+            opacity={readingStyle?.lensOpacity ?? 0.18}
+            onZoomIn={() =>
+              setLivePreference(
+                "lensZoom",
+                Math.min(2.2, Number(((readingStyle?.lensZoom || 1.35) + 0.1).toFixed(2)))
+              )
+            }
+            onZoomOut={() =>
+              setLivePreference(
+                "lensZoom",
+                Math.max(1, Number(((readingStyle?.lensZoom || 1.35) - 0.1).toFixed(2)))
+              )
+            }
+            onResizeUp={() =>
+              setLivePreference(
+                "lensSize",
+                Math.min(280, (readingStyle?.lensSize || 180) + 20)
+              )
+            }
+            onResizeDown={() =>
+              setLivePreference(
+                "lensSize",
+                Math.max(120, (readingStyle?.lensSize || 180) - 20)
+              )
+            }
+            onResizeTo={(nextSize) => setLivePreference("lensSize", nextSize)}
+            onClose={() => setLivePreference("magnifierEnabled", false)}
+          />
         </div>
 
         {(sourceDocTitle || focusWords.length > 0) && (
-          <p style={styles.trainingMeta}>
+          <p
+            style={{
+              ...styles.trainingMeta,
+              color: readingStyle?.colors.muted || styles.trainingMeta.color,
+              fontFamily: readingStyle?.fontFamily || styles.page.fontFamily,
+              letterSpacing: readingStyle?.letterSpacing || "0.08em",
+              wordSpacing: readingStyle?.wordSpacing || "0.18em",
+              lineHeight: readingStyle?.lineHeight || 1.65,
+            }}
+          >
             {sourceDocTitle ? `Doc: ${sourceDocTitle}. ` : ""}
             {focusWords.length > 0 ? `Focus words: ${focusWords.join(", ")}` : ""}
           </p>
         )}
         {selectedWord && (
-          <div style={styles.spokenCard}>
+          <div
+            style={{
+              ...styles.spokenCard,
+              background: readingStyle?.colors.card || styles.spokenCard.background,
+              border: `1px solid ${readingStyle?.colors.border || "#dbe4f0"}`,
+            }}
+          >
             <span style={styles.label}>Word Breakdown</span>
-            <p style={styles.spokenText}>
+            <p
+              style={{
+                ...styles.spokenText,
+                color: readingStyle?.colors.ink || styles.spokenText.color,
+                fontFamily: readingStyle?.fontFamily || styles.page.fontFamily,
+                fontSize: `${18 * (readingStyle?.fontScale || 1)}px`,
+                letterSpacing: readingStyle?.letterSpacing || "0.08em",
+                wordSpacing: readingStyle?.wordSpacing || "0.18em",
+                lineHeight: readingStyle?.lineHeight || 1.65,
+                background: readingStyle?.focusColor || "transparent",
+                borderRadius: 10,
+                display: "inline-block",
+                padding: "6px 10px",
+                transform: readingStyle?.magnifierEnabled ? "scale(1.08)" : "scale(1)",
+                transition: "transform 0.18s ease, background 0.18s ease",
+              }}
+            >
               <strong>{selectedWord}</strong>
             </p>
-            <p style={styles.spokenText}>
+            <p
+              style={{
+                ...styles.spokenText,
+                color: readingStyle?.colors.ink || styles.spokenText.color,
+                fontFamily: readingStyle?.fontFamily || styles.page.fontFamily,
+                fontSize: `${18 * (readingStyle?.fontScale || 1)}px`,
+                letterSpacing: readingStyle?.letterSpacing || "0.08em",
+                wordSpacing: readingStyle?.wordSpacing || "0.18em",
+                lineHeight: readingStyle?.lineHeight || 1.65,
+              }}
+            >
               Syllables: {selectedSyllables.join(" - ")}
             </p>
-            <p style={styles.spokenText}>
+            <p
+              style={{
+                ...styles.spokenText,
+                color: readingStyle?.colors.ink || styles.spokenText.color,
+                fontFamily: readingStyle?.fontFamily || styles.page.fontFamily,
+                fontSize: `${18 * (readingStyle?.fontScale || 1)}px`,
+                letterSpacing: readingStyle?.letterSpacing || "0.08em",
+                wordSpacing: readingStyle?.wordSpacing || "0.18em",
+                lineHeight: readingStyle?.lineHeight || 1.65,
+              }}
+            >
               Pronunciation: {selectedPronunciation}
             </p>
             <button
@@ -440,9 +671,27 @@ function SentenceLevel() {
         </div>
 
         {spoken && (
-          <div style={styles.spokenCard}>
+          <div
+            style={{
+              ...styles.spokenCard,
+              background: readingStyle?.colors.card || styles.spokenCard.background,
+              border: `1px solid ${readingStyle?.colors.border || "#dbe4f0"}`,
+            }}
+          >
             <span style={styles.label}>You said</span>
-            <p style={styles.spokenText}>{spoken}</p>
+            <p
+              style={{
+                ...styles.spokenText,
+                color: readingStyle?.colors.ink || styles.spokenText.color,
+                fontFamily: readingStyle?.fontFamily || styles.page.fontFamily,
+                fontSize: `${18 * (readingStyle?.fontScale || 1)}px`,
+                letterSpacing: readingStyle?.letterSpacing || "0.08em",
+                wordSpacing: readingStyle?.wordSpacing || "0.18em",
+                lineHeight: readingStyle?.lineHeight || 1.65,
+              }}
+            >
+              {spoken}
+            </p>
           </div>
         )}
 
@@ -501,6 +750,7 @@ const styles = {
     color: "#1e293b",
   },
   sentenceWrap: {
+    position: "relative",
     padding: "48px",
     borderRadius: 24,
     background: "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",

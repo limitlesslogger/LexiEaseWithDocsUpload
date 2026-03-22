@@ -4,6 +4,9 @@ import { uploadTrainingDocumentFile } from "../middleware/trainingDocumentUpload
 import {
   uploadTrainingDocument,
   getMyTrainingDocuments,
+  getVisibleTrainingDocuments,
+  updateTrainingSelection,
+  updateTrainingDocumentSharing,
 } from "../controllers/trainingDocumentController.js";
 
 const router = express.Router();
@@ -21,6 +24,27 @@ router.get(
   protect,
   authorizeRoles("student", "teacher", "parent"),
   getMyTrainingDocuments
+);
+
+router.get(
+  "/available",
+  protect,
+  authorizeRoles("student"),
+  getVisibleTrainingDocuments
+);
+
+router.post(
+  "/selection",
+  protect,
+  authorizeRoles("student"),
+  updateTrainingSelection
+);
+
+router.patch(
+  "/:id/sharing",
+  protect,
+  authorizeRoles("student", "teacher", "parent"),
+  updateTrainingDocumentSharing
 );
 
 export default router;

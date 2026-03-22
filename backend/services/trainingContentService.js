@@ -1,11 +1,13 @@
 import TrainingDocument from "../models/TrainingDocument.js";
 import StudentTeacher from "../models/StudentTeacher.js";
 import ParentChild from "../models/ParentChild.js";
+import StudentTrainingPreference from "../models/StudentTrainingPreference.js";
 import { WORDS } from "../data/words.js";
 import { SENTENCES } from "../data/sentences.js";
 
 export const MAX_TRAINING_DOC_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 export const ALLOWED_TRAINING_DOC_EXTENSIONS = [".pdf", ".docx", ".txt"];
+export const REVOKE_SHARED_ACCESS_WHEN_RELATIONSHIP_REMOVED = true;
 
 const normalizeText = (value = "") =>
   value
@@ -13,6 +15,13 @@ const normalizeText = (value = "") =>
     .replace(/[ \t]+/g, " ")
     .replace(/\n{2,}/g, "\n")
     .trim();
+
+export const buildDocPreview = (rawText = "", limit = 220) => {
+  const normalized = normalizeText(rawText);
+  if (!normalized) return "";
+  if (normalized.length <= limit) return normalized;
+  return `${normalized.slice(0, limit).trim()}...`;
+};
 
 const toSentenceChunks = (text = "") => {
   const normalized = normalizeText(text);
@@ -106,7 +115,7 @@ const dedupeWords = (words = []) => {
   return deduped;
 };
 
-export const getTrainingCorpusForStudent = async (studentId) => {
+export const getVisibleTrainingDocumentsForStudent = async (studentId) => {
   const [teacherLinks, parentLinks] = await Promise.all([
     StudentTeacher.find({ studentId }).select("teacherId"),
     ParentChild.find({ childId: studentId }).select("parentId"),
@@ -115,7 +124,7 @@ export const getTrainingCorpusForStudent = async (studentId) => {
   const teacherIds = teacherLinks.map((l) => l.teacherId);
   const parentIds = parentLinks.map((l) => l.parentId);
 
-  const docs = await TrainingDocument.find({
+  const baseQuery = {
     isEnabledForTraining: true,
     $or: [
       { ownerRole: "student", ownerId: studentId, shareMode: "private" },
@@ -140,7 +149,32 @@ export const getTrainingCorpusForStudent = async (studentId) => {
         shareMode: "selected",
       },
     ],
-  }).sort({ createdAt: -1 });
+  };
+
+  return TrainingDocument.find(baseQuery)
+    .sort({ createdAt: -1 })
+    .select(
+      "title ownerId ownerRole previewText extractedWordCount extractedSentenceCount shareMode targetType sharedWithAll assignedStudentIds targetStudentIds createdAt rawText"
+    )
+    .populate("ownerId", "name email role");
+};
+
+export const getTrainingCorpusForStudent = async (studentId) => {
+  const [visibleDocs, preference] = await Promise.all([
+    getVisibleTrainingDocumentsForStudent(studentId),
+    StudentTrainingPreference.findOne({ studentId }).select("mode selectedDocumentIds"),
+  ]);
+
+  const visibleDocIdSet = new Set(visibleDocs.map((doc) => doc._id.toString()));
+
+  const docs =
+    preference?.mode === "selected"
+      ? visibleDocs.filter((doc) =>
+          preference.selectedDocumentIds.some(
+            (selectedId) => selectedId.toString() === doc._id.toString()
+          )
+        )
+      : visibleDocs;
 
   const dataset = mapDocsToDataset(docs);
   const words = dedupeWords(dataset.words);
@@ -153,6 +187,13 @@ export const getTrainingCorpusForStudent = async (studentId) => {
     sentences: hasCustomTrainingData ? sentences : SENTENCES,
     hasCustomTrainingData,
     source: hasCustomTrainingData ? "uploaded-documents" : "fallback-hardcoded",
+    activeDocumentIds:
+      preference?.mode === "selected"
+        ? preference.selectedDocumentIds
+            .map((id) => id.toString())
+            .filter((id) => visibleDocIdSet.has(id))
+        : visibleDocs.map((doc) => doc._id.toString()),
+    documentSelectionMode: preference?.mode || "all",
   };
 };
 

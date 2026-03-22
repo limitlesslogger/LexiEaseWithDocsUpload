@@ -4,6 +4,7 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import TrainingDocsPage from "./pages/TrainingDocsPage";
+import ManageStudentsPage from "./pages/ManageStudentsPage";
 
 import StudentLayout from "./student/StudentLayout";
 import Toggle from "./student/Toggle";
@@ -13,6 +14,7 @@ import LetterLevel from "./student/LetterLevel";
 import TwoLetterLevel from "./student/TwoLetterLevel";
 import WordLevel from "./student/WordLevel";
 import SentenceLevel from "./student/SentenceLevel.jsx";
+import ChangePassword from "./student/ChangePassword";
 
 /* ================= Protected Route ================= */
 function ProtectedRoute({ children, allowedRoles }) {
@@ -63,6 +65,7 @@ function App() {
           <Route path="word-level" element={<WordLevel />} />
           <Route path="sentence-level" element={<SentenceLevel />} />
           <Route path="training-docs" element={<TrainingDocsPage role="student" />} />
+          <Route path="change-password" element={<ChangePassword />} />
         </Route>
 
         {/* -------- Teacher -------- */}
@@ -82,6 +85,22 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/teacher/manage-students"
+          element={
+            <ProtectedRoute allowedRoles={["teacher"]}>
+              <ManageStudentsPage role="teacher" />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher/change-password"
+          element={
+            <ProtectedRoute allowedRoles={["teacher"]}>
+              <ChangePassword />
+            </ProtectedRoute>
+          }
+        />
 
         {/* -------- Parent -------- */}
         <Route
@@ -97,6 +116,22 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["parent"]}>
               <TrainingDocsPage role="parent" />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/parent/manage-children"
+          element={
+            <ProtectedRoute allowedRoles={["parent"]}>
+              <ManageStudentsPage role="parent" />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/parent/change-password"
+          element={
+            <ProtectedRoute allowedRoles={["parent"]}>
+              <ChangePassword />
             </ProtectedRoute>
           }
         />
