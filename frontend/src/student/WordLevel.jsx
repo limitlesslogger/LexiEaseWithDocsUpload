@@ -16,9 +16,12 @@ import {
 } from "../utils/eyeTrackingController";
 
 import {
+  buildWordFeedbackSpeech,
+  speakText,
   splitIntoSyllables,
   getGoogleStylePronunciation,
   speakSyllables,
+  speakWordBreakdown,
 } from "../utils/syllabify";
 
 export default function WordLevel() {
@@ -226,27 +229,14 @@ export default function WordLevel() {
   if (!word) return <div style={styles.loading}>Loading…</div>;
   const speakFeedback = (feedback) => {
     if (!("speechSynthesis" in window) || !feedback) return;
-
-    let text = "";
-
-    if (feedback.wordCorrect) {
-      text = "Excellent pronunciation. Well done!";
-    } else if (feedback.problemLetters?.length > 0) {
-      text = `Good attempt. Focus on the letters ${feedback.problemLetters.join(
-        ", ",
-      )}.`;
-    } else {
-      text = "Good effort. Try again slowly and clearly.";
-    }
-
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1.05;
-    utterance.volume = 1;
-
-    window.speechSynthesis.speak(utterance);
+    speakText(
+      buildWordFeedbackSpeech({
+        word,
+        syllables,
+        feedback,
+      }),
+      { rate: 0.74, pitch: 1.02 }
+    );
   };
 
   return (
@@ -416,9 +406,17 @@ export default function WordLevel() {
         {syllables.length > 0 && (
           <button
             style={styles.primaryButton}
+            onClick={() => speakWordBreakdown(word, syllables)}
+          >
+            Hear Word Breakdown
+          </button>
+        )}
+        {syllables.length > 0 && (
+          <button
+            style={styles.secondaryAction}
             onClick={() => speakSyllables(syllables)}
           >
-            Speak Syllables
+            Hear Syllables Only
           </button>
         )}
 
@@ -549,6 +547,17 @@ const styles = {
     border: "none",
     borderRadius: 8,
     cursor: "pointer",
+  },
+  secondaryAction: {
+    padding: "12px 20px",
+    fontSize: 15,
+    fontWeight: 600,
+    backgroundColor: "#e0f2fe",
+    color: "#0f172a",
+    border: "1px solid #7dd3fc",
+    borderRadius: 8,
+    cursor: "pointer",
+    marginTop: 10,
   },
   stopButton: {
     padding: "14px 28px",

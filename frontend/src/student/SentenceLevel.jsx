@@ -18,6 +18,9 @@ import {
   splitIntoSyllables,
   getGoogleStylePronunciation,
   speakSyllables,
+  speakSentenceBreakdown,
+  speakText,
+  speakWordBreakdown,
 } from "../utils/syllabify";
 
 function SentenceLevel() {
@@ -184,16 +187,7 @@ function SentenceLevel() {
     const text = feedback.sentenceCorrect
       ? getSuccessFeedback()
       : getMotivatingFeedback();
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-
-    // Make it more enthusiastic
-    utterance.rate = 1.0;
-    utterance.pitch = 1.1;
-    utterance.volume = 1.0;
-
-    window.speechSynthesis.speak(utterance);
+    speakText(text, { rate: 0.8, pitch: 1.05 });
   };
 
   /* =========================
@@ -586,6 +580,16 @@ function SentenceLevel() {
             {focusWords.length > 0 ? `Focus words: ${focusWords.join(", ")}` : ""}
           </p>
         )}
+        {sentence && (
+          <div style={styles.controls}>
+            <button
+              onClick={() => speakSentenceBreakdown(sentence, focusWords)}
+              style={styles.stopBtn}
+            >
+              Hear Sentence
+            </button>
+          </div>
+        )}
         {selectedWord && (
           <div
             style={{
@@ -642,9 +646,15 @@ function SentenceLevel() {
             </p>
             <button
               style={{ ...styles.stopBtn, marginTop: 10 }}
+              onClick={() => speakWordBreakdown(selectedWord, selectedSyllables)}
+            >
+              Hear Word Breakdown
+            </button>
+            <button
+              style={{ ...styles.stopBtn, marginTop: 10 }}
               onClick={() => speakSyllables(selectedSyllables)}
             >
-              Speak Syllables
+              Hear Syllables Only
             </button>
           </div>
         )}
