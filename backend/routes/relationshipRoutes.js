@@ -6,6 +6,7 @@ import {
   getMyChildren,
   getAvailableStudentsForLinking,
   linkStudentToCurrentUser,
+  linkStudentWithCredentials,
   createStudentAndLink,
   unlinkStudentFromCurrentUser,
 } from "../controllers/relationshipController.js";
@@ -42,6 +43,13 @@ router.post(
   protect,
   authorizeRoles("teacher", "parent"),
   linkStudentToCurrentUser
+);
+
+router.post(
+  "/link-student-with-credentials",
+  protect,
+  authorizeRoles("teacher", "parent"),
+  linkStudentWithCredentials
 );
 
 router.post(

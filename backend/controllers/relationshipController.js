@@ -121,7 +121,7 @@ export const linkStudentToCurrentUser = async (req, res) => {
       student.createdByRole !== req.user.role
     ) {
       return res.status(403).json({
-        message: "You can only link students created under your own therapist or guardian account",
+        message: "You can only link by student chooser for students created under your own account. Use student email and temporary password for private linking.",
       });
     }
 
@@ -146,6 +146,58 @@ export const linkStudentToCurrentUser = async (req, res) => {
       return res.status(400).json({ message: "Link already exists" });
     }
     return res.status(500).json({ message: "Failed to create link" });
+  }
+};
+
+export const linkStudentWithCredentials = async (req, res) => {
+  try {
+    if (!["teacher", "parent"].includes(req.user.role)) {
+      return res.status(403).json({ message: "Not allowed" });
+    }
+
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: "Student email and temporary password are required" });
+    }
+
+    const student = await User.findOne({
+      email: String(email).toLowerCase().trim(),
+      role: "student",
+    }).select("+password name email role");
+
+    if (!student) {
+      return res.status(400).json({ message: "Student account not found" });
+    }
+
+    const matches = await student.matchPassword(String(password));
+    if (!matches) {
+      return res.status(400).json({ message: "Student email or temporary password is incorrect" });
+    }
+
+    if (req.user.role === "teacher") {
+      await StudentTeacher.create({ teacherId: req.user._id, studentId: student._id });
+    } else {
+      await ParentChild.create({ parentId: req.user._id, childId: student._id });
+    }
+
+    return res.status(201).json({
+      success: true,
+      student: {
+        _id: student._id,
+        name: student.name,
+        email: student.email,
+        role: student.role,
+      },
+      message:
+        req.user.role === "teacher"
+          ? "Student linked successfully using student credentials."
+          : "Child linked successfully using student credentials.",
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(400).json({ message: "This student is already linked to your account" });
+    }
+    return res.status(500).json({ message: "Failed to link student with credentials" });
   }
 };
 

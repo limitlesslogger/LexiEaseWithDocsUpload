@@ -7,6 +7,10 @@ export default function ManageStudentsPage({ role }) {
   const [linkedStudents, setLinkedStudents] = useState([]);
   const [availableStudents, setAvailableStudents] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [linkCredentials, setLinkCredentials] = useState({
+    email: "",
+    password: "",
+  });
   const [newStudent, setNewStudent] = useState({
     name: "",
     email: "",
@@ -22,7 +26,8 @@ export default function ManageStudentsPage({ role }) {
   const learnerLabel = isTeacher ? "Student" : "Child";
   const heading = isTeacher ? "Manage Students" : "Manage Children";
   const linkedLabel = isTeacher ? "Linked Students" : "Linked Children";
-  const chooseLabel = isTeacher ? "Choose from your enrolled students" : "Choose from your enrolled student accounts";
+  const chooseLabel = isTeacher ? "Choose a student account to link" : "Choose a student account to link";
+  const privateLinkLabel = isTeacher ? "Link With Student Credentials" : "Link With Student Credentials";
   const createLabel = isTeacher ? "Add New Student" : "Add New Child";
 
   const handleLogout = async () => {
@@ -108,6 +113,31 @@ export default function ManageStudentsPage({ role }) {
     }
   };
 
+  const handleLinkWithCredentials = async (event) => {
+    event.preventDefault();
+    if (!linkCredentials.email || !linkCredentials.password) {
+      setError("Enter the student's email and temporary password.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      setCreatedCredentials(null);
+      const res = await apiFetch("/api/relationships/link-student-with-credentials", {
+        method: "POST",
+        body: JSON.stringify(linkCredentials),
+      });
+      setMessage(res.message || `${learnerLabel} linked.`);
+      setLinkCredentials({ email: "", password: "" });
+      await loadData();
+    } catch (err) {
+      setError(err.message || "Failed to link student");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleUnlinkStudent = async (studentId) => {
     try {
       setLoading(true);
@@ -181,9 +211,39 @@ export default function ManageStudentsPage({ role }) {
 
       <div style={styles.grid}>
         <section style={styles.card}>
+          <h2 style={styles.sectionTitle}>{privateLinkLabel}</h2>
+          <p style={styles.helperText}>
+            To protect privacy, existing student accounts are not listed globally. Link a learner by entering the student email and the temporary password shared with you. A learner may have a therapist, a guardian, both, or neither.
+          </p>
+          <form style={styles.form} onSubmit={handleLinkWithCredentials}>
+            <input
+              style={styles.input}
+              placeholder="Student email"
+              type="email"
+              value={linkCredentials.email}
+              onChange={(event) =>
+                setLinkCredentials((prev) => ({ ...prev, email: event.target.value }))
+              }
+            />
+            <input
+              style={styles.input}
+              placeholder="Temporary password"
+              type="password"
+              value={linkCredentials.password}
+              onChange={(event) =>
+                setLinkCredentials((prev) => ({ ...prev, password: event.target.value }))
+              }
+            />
+            <button type="submit" style={styles.button} disabled={loading}>
+              {`Link ${learnerLabel} Privately`}
+            </button>
+          </form>
+        </section>
+
+        <section style={styles.card}>
           <h2 style={styles.sectionTitle}>{chooseLabel}</h2>
           <p style={styles.helperText}>
-            Only student accounts created under your own {mentorLabel.toLowerCase()} account are shown here. Other therapists' or guardians' students are hidden.
+            This chooser still works for student accounts created directly under your own {mentorLabel.toLowerCase()} account.
           </p>
           {canLinkExisting ? (
             <>
@@ -208,14 +268,14 @@ export default function ManageStudentsPage({ role }) {
               </button>
             </>
           ) : (
-            <p style={styles.empty}>No unlinked student accounts created under your account are available right now.</p>
+            <p style={styles.empty}>No unlinked students created under your account are available right now.</p>
           )}
         </section>
 
         <section style={styles.card}>
           <h2 style={styles.sectionTitle}>{createLabel}</h2>
           <p style={styles.helperText}>
-            Set the student email ID and an initial password here. The student can later change that password from their own student account. After creation, the account will appear in the chooser on the left so you can link it explicitly.
+            Set the student email ID and an initial password here. The student can later change that password from their own student account. After creation, the learner can still be linked independently to a therapist, a guardian, both, or neither.
           </p>
           <form style={styles.form} onSubmit={handleCreateStudent}>
             <input
