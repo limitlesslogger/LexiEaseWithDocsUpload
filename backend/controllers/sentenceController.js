@@ -191,17 +191,24 @@ export const logSentenceAttempt = async (req, res) => {
 
     // Extract letter-level errors   
     const problemLetters = new Set();
+    const letterAdjustments = new Map();
+    const expectedChars = expectedNorm.split("");
+    const spokenChars = spokenNorm.split("");
 
-    const minLen = Math.min(expectedNorm.length, spokenNorm.length);
+    for (let i = 0; i < expectedChars.length; i++) {
+      const expChar = expectedChars[i];
+      const spkChar = spokenChars[i] || "";
 
-    for (let i = 0; i < minLen; i++) {
-      const expChar = expectedNorm[i];
-      const spkChar = spokenNorm[i];
+      if (!(expChar >= "a" && expChar <= "z")) continue;
 
-      if (expChar !== spkChar) {
-        if (expChar >= "a" && expChar <= "z") {
-          problemLetters.add(expChar);
-        }
+      if (expChar === spkChar) {
+        const currentReward = letterAdjustments.get(expChar) || 0;
+        // Small positive reinforcement when a letter is pronounced correctly inside a sentence.
+        letterAdjustments.set(expChar, currentReward + 0.05);
+      } else {
+        problemLetters.add(expChar);
+        const currentReward = letterAdjustments.get(expChar) || 0;
+        letterAdjustments.set(expChar, currentReward - 0.2);
       }
     }
 
@@ -229,19 +236,16 @@ export const logSentenceAttempt = async (req, res) => {
     sentenceState.isActive = false;
     await sentenceState.save();
 
-    // Reinforce LetterState
-    for (const letter of problemLetters) {
-      const letterState = await LetterState.findOne({
-        studentId,
-        letter,
-      });
+    // Reinforce LetterState in both directions so sentence practice teaches the same
+    // underlying letter weaknesses that drive future filtering.
+    for (const [letter, rewardDelta] of letterAdjustments.entries()) {
+      const letterState = await LetterState.findOneAndUpdate(
+        { studentId, letter },
+        {},
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
 
-      if (!letterState) continue;
-
-      // Small penalty, not harsh
-      const letterPenalty = 0.2;
-
-      updateBanditState(letterState, -letterPenalty);
+      updateBanditState(letterState, rewardDelta);
       await letterState.save();
     }
 

@@ -207,16 +207,24 @@ export const geminiWordAttempt = async (req, res) => {
     });
 
     const problemLetters = new Set();
-    const minLen = Math.min(expectedNorm.length, spokenNorm.length);
+    const letterAdjustments = new Map();
+    const expectedChars = expectedNorm.split("");
+    const spokenChars = spokenNorm.split("");
 
-    for (let i = 0; i < minLen; i++) {
-      const expChar = expectedNorm[i];
-      const spkChar = spokenNorm[i];
+    for (let i = 0; i < expectedChars.length; i++) {
+      const expChar = expectedChars[i];
+      const spkChar = spokenChars[i] || "";
 
-      if (expChar !== spkChar) {
-        if (expChar >= "a" && expChar <= "z") {
-          problemLetters.add(expChar);
-        }
+      if (!(expChar >= "a" && expChar <= "z")) continue;
+
+      if (expChar === spkChar) {
+        const currentReward = letterAdjustments.get(expChar) || 0;
+        // Small positive reinforcement when the student pronounces this letter correctly in a word.
+        letterAdjustments.set(expChar, currentReward + 0.1);
+      } else {
+        problemLetters.add(expChar);
+        const currentReward = letterAdjustments.get(expChar) || 0;
+        letterAdjustments.set(expChar, currentReward - 0.2);
       }
     }
 
@@ -235,11 +243,13 @@ export const geminiWordAttempt = async (req, res) => {
     wordState.isActive = false;
     await wordState.save();
 
-    for (const letter of problemLetters) {
-      const letterState = await LetterState.findOne({ studentId, letter });
-      if (!letterState) continue;
-      const letterPenalty = 0.2;
-      updateBanditState(letterState, -letterPenalty);
+    for (const [letter, rewardDelta] of letterAdjustments.entries()) {
+      const letterState = await LetterState.findOneAndUpdate(
+        { studentId, letter },
+        {},
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+      updateBanditState(letterState, rewardDelta);
       await letterState.save();
     }
 
