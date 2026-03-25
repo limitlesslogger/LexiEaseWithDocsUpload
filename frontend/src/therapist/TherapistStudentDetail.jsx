@@ -988,6 +988,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/api";
 import { SearchablePaginatedTable } from "../components/SearchablePaginatedList";
+import { downloadReportCsv } from "../utils/reportExport";
 
 /* Helper: Format time ago */
 function getTimeAgo(date) {
@@ -1303,6 +1304,17 @@ export default function TherapistStudentDetail() {
   const [error, setError] = useState(null);
   const [timeframe, setTimeframe] = useState(7);
 
+  const handleDownloadReport = () => {
+    downloadReportCsv({
+      profileLabel: "Therapist",
+      subjectName: student?.name || "Learner",
+      reportType: selectedReport,
+      timeframe,
+      summary,
+      reportData,
+    });
+  };
+
   useEffect(() => {
     fetchStudentDetail();
   }, [studentId]);
@@ -1417,41 +1429,51 @@ export default function TherapistStudentDetail() {
 
       {/* Report Navigation */}
       <div style={styles.reportNav}>
+        <div style={styles.reportNavTabs}>
+          <button
+            onClick={() => setSelectedReport("summary")}
+            style={{
+              ...styles.reportBtn,
+              ...(selectedReport === "summary" ? styles.reportBtnActive : {}),
+            }}
+          >
+            Summary
+          </button>
+          <button
+            onClick={() => setSelectedReport("letters")}
+            style={{
+              ...styles.reportBtn,
+              ...(selectedReport === "letters" ? styles.reportBtnActive : {}),
+            }}
+          >
+            Letters Report
+          </button>
+          <button
+            onClick={() => setSelectedReport("words")}
+            style={{
+              ...styles.reportBtn,
+              ...(selectedReport === "words" ? styles.reportBtnActive : {}),
+            }}
+          >
+            Words Report
+          </button>
+          <button
+            onClick={() => setSelectedReport("sentences")}
+            style={{
+              ...styles.reportBtn,
+              ...(selectedReport === "sentences" ? styles.reportBtnActive : {}),
+            }}
+          >
+            Sentences Report
+          </button>
+        </div>
         <button
-          onClick={() => setSelectedReport("summary")}
-          style={{
-            ...styles.reportBtn,
-            ...(selectedReport === "summary" ? styles.reportBtnActive : {}),
-          }}
+          type="button"
+          onClick={handleDownloadReport}
+          style={styles.downloadBtn}
+          disabled={loading || (selectedReport === "summary" ? !summary : !reportData)}
         >
-          Summary
-        </button>
-        <button
-          onClick={() => setSelectedReport("letters")}
-          style={{
-            ...styles.reportBtn,
-            ...(selectedReport === "letters" ? styles.reportBtnActive : {}),
-          }}
-        >
-          Letters Report
-        </button>
-        <button
-          onClick={() => setSelectedReport("words")}
-          style={{
-            ...styles.reportBtn,
-            ...(selectedReport === "words" ? styles.reportBtnActive : {}),
-          }}
-        >
-          Words Report
-        </button>
-        <button
-          onClick={() => setSelectedReport("sentences")}
-          style={{
-            ...styles.reportBtn,
-            ...(selectedReport === "sentences" ? styles.reportBtnActive : {}),
-          }}
-        >
-          Sentences Report
+          Download Current Report
         </button>
       </div>
 
@@ -2240,10 +2262,17 @@ const styles = {
   },
   reportNav: {
     display: "flex",
-    gap: 8,
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
     marginBottom: 24,
     borderBottom: "1px solid #e2e8f0",
     paddingBottom: 16,
+    flexWrap: "wrap",
+  },
+  reportNavTabs: {
+    display: "flex",
+    gap: 8,
     overflowX: "auto",
   },
   reportBtn: {
@@ -2256,6 +2285,17 @@ const styles = {
     fontSize: 14,
     borderRadius: 6,
     transition: "all 0.2s ease",
+    whiteSpace: "nowrap",
+  },
+  downloadBtn: {
+    padding: "10px 14px",
+    border: "1px solid #0f766e",
+    background: "#ecfeff",
+    color: "#115e59",
+    cursor: "pointer",
+    fontWeight: 700,
+    fontSize: 14,
+    borderRadius: 8,
     whiteSpace: "nowrap",
   },
   reportBtnActive: {

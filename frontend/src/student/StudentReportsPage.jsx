@@ -5,6 +5,7 @@ import {
   SearchablePaginatedBlocks,
   SearchablePaginatedTable,
 } from "../components/SearchablePaginatedList";
+import { downloadReportCsv } from "../utils/reportExport";
 
 const TABS = ["summary", "letters", "words", "sentences"];
 
@@ -65,6 +66,17 @@ export default function StudentReportsPage() {
     setSearchParams({ tab });
   };
 
+  const handleDownloadReport = () => {
+    downloadReportCsv({
+      profileLabel: "Student",
+      subjectName: user?.name || "Learner",
+      reportType: selectedTab,
+      timeframe,
+      summary,
+      reportData,
+    });
+  };
+
   return (
     <div style={styles.page}>
       <div style={styles.header}>
@@ -96,16 +108,26 @@ export default function StudentReportsPage() {
             </button>
           ))}
         </div>
-        <select
-          value={timeframe}
-          onChange={(e) => setTimeframe(Number(e.target.value))}
-          style={styles.select}
-        >
-          <option value={7}>Last 7 days</option>
-          <option value={14}>Last 14 days</option>
-          <option value={30}>Last 30 days</option>
-          <option value={90}>Last 90 days</option>
-        </select>
+        <div style={styles.controlActions}>
+          <select
+            value={timeframe}
+            onChange={(e) => setTimeframe(Number(e.target.value))}
+            style={styles.select}
+          >
+            <option value={7}>Last 7 days</option>
+            <option value={14}>Last 14 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+          </select>
+          <button
+            type="button"
+            onClick={handleDownloadReport}
+            style={styles.downloadBtn}
+            disabled={loading || (selectedTab === "summary" ? !summary : !reportData)}
+          >
+            Download Current Report
+          </button>
+        </div>
       </div>
 
       {error && <div style={styles.error}>{error}</div>}
@@ -297,6 +319,12 @@ const styles = {
     gap: 10,
     flexWrap: "wrap",
   },
+  controlActions: {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
   tab: {
     border: "1px solid #cbd5e1",
     background: "white",
@@ -315,6 +343,15 @@ const styles = {
     borderRadius: 10,
     border: "1px solid #cbd5e1",
     padding: "10px 12px",
+  },
+  downloadBtn: {
+    borderRadius: 10,
+    border: "1px solid #0f766e",
+    background: "#ecfeff",
+    color: "#115e59",
+    padding: "10px 14px",
+    fontWeight: 700,
+    cursor: "pointer",
   },
   error: {
     background: "#fee2e2",
