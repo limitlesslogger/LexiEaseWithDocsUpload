@@ -1,15 +1,82 @@
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../api/api";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const timeframe = 30;
 
-  // Temporary mock data (replace with API later)
-  const progress = {
-    letter: { completed: 42, accuracy: 88 },
-    word: { completed: 18, accuracy: 81 },
-    sentence: { completed: 9, accuracy: 76 },
-    streak: 4,
-  };
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSummary = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const data = await apiFetch(`/api/reports/student?timeframe=${timeframe}`);
+        if (!cancelled) {
+          setSummary(data.summary || null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.message || "Failed to load dashboard progress");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadSummary();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const progressCards = useMemo(
+    () => [
+      {
+        title: "Letter Level",
+        primaryLabel: "Practised",
+        primaryValue: summary?.letters?.total ?? 0,
+        secondaryLabel: "Avg Strength",
+        secondaryValue: `${summary?.letters?.avgStrength ?? 0}%`,
+        accent: "#2563eb",
+        actionLabel: "Open Letter Practice",
+        onClick: () => navigate("/student/letter-level"),
+      },
+      {
+        title: "Word Level",
+        primaryLabel: "Attempts",
+        primaryValue: summary?.words?.total ?? 0,
+        secondaryLabel: "Accuracy",
+        secondaryValue: `${summary?.words?.successRate ?? 0}%`,
+        accent: "#7c3aed",
+        actionLabel: "Open Word Practice",
+        onClick: () => navigate("/student/word-level"),
+      },
+      {
+        title: "Sentence Level",
+        primaryLabel: "Attempts",
+        primaryValue: summary?.sentences?.total ?? 0,
+        secondaryLabel: "Accuracy",
+        secondaryValue: `${summary?.sentences?.successRate ?? 0}%`,
+        accent: "#0891b2",
+        actionLabel: "Open Sentence Practice",
+        onClick: () => navigate("/student/sentence-level"),
+      },
+    ],
+    [navigate, summary]
+  );
+
+  const totalActivity =
+    (summary?.letters?.total ?? 0) +
+    (summary?.words?.total ?? 0) +
+    (summary?.sentences?.total ?? 0);
 
   return (
     <div style={styles.page}>
@@ -21,10 +88,12 @@ export default function Dashboard() {
           </p>
         </div>
         <div style={styles.streakCard}>
-          <span style={styles.streakLabel}>Practice streak</span>
-          <strong style={styles.streakValue}>{progress.streak} days</strong>
+          <span style={styles.streakLabel}>Last 30 days</span>
+          <strong style={styles.streakValue}>{totalActivity} activities</strong>
         </div>
       </div>
+
+      {error ? <div style={styles.error}>{error}</div> : null}
 
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
@@ -32,32 +101,19 @@ export default function Dashboard() {
           <p style={styles.sectionText}>Move through the learning levels in the order that feels right for today.</p>
         </div>
         <div style={styles.grid}>
-          <ProgressCard
-            title="Letter Level"
-            completed={progress.letter.completed}
-            accuracy={progress.letter.accuracy}
-            accent="#2563eb"
-            actionLabel="Open Letter Practice"
-            onClick={() => navigate("/student/letter-level")}
-          />
-
-          <ProgressCard
-            title="Word Level"
-            completed={progress.word.completed}
-            accuracy={progress.word.accuracy}
-            accent="#7c3aed"
-            actionLabel="Open Word Practice"
-            onClick={() => navigate("/student/word-level")}
-          />
-
-          <ProgressCard
-            title="Sentence Level"
-            completed={progress.sentence.completed}
-            accuracy={progress.sentence.accuracy}
-            accent="#0891b2"
-            actionLabel="Open Sentence Practice"
-            onClick={() => navigate("/student/sentence-level")}
-          />
+          {progressCards.map((card) => (
+            <ProgressCard
+              key={card.title}
+              title={card.title}
+              primaryLabel={card.primaryLabel}
+              primaryValue={loading ? "..." : card.primaryValue}
+              secondaryLabel={card.secondaryLabel}
+              secondaryValue={loading ? "..." : card.secondaryValue}
+              accent={card.accent}
+              actionLabel={card.actionLabel}
+              onClick={card.onClick}
+            />
+          ))}
         </div>
       </div>
 
@@ -116,20 +172,29 @@ export default function Dashboard() {
 /* =========================
    Components
 ========================== */
-function ProgressCard({ title, completed, accuracy, accent, actionLabel, onClick }) {
+function ProgressCard({
+  title,
+  primaryLabel,
+  primaryValue,
+  secondaryLabel,
+  secondaryValue,
+  accent,
+  actionLabel,
+  onClick,
+}) {
   return (
     <div style={{ ...styles.card, borderTop: `4px solid ${accent}` }} onClick={onClick}>
       <h3 style={styles.cardTitle}>{title}</h3>
 
       <div style={styles.cardStats}>
         <div>
-          <span style={styles.smallLabel}>Completed</span>
-          <p style={styles.value}>{completed}</p>
+          <span style={styles.smallLabel}>{primaryLabel}</span>
+          <p style={styles.value}>{primaryValue}</p>
         </div>
 
         <div>
-          <span style={styles.smallLabel}>Accuracy</span>
-          <p style={styles.value}>{accuracy}%</p>
+          <span style={styles.smallLabel}>{secondaryLabel}</span>
+          <p style={styles.value}>{secondaryValue}</p>
         </div>
       </div>
 
@@ -202,6 +267,13 @@ const styles = {
     fontSize: 16,
     color: "#64748b",
     marginTop: 8,
+  },
+  error: {
+    background: "#fee2e2",
+    color: "#991b1b",
+    borderRadius: 14,
+    padding: "12px 16px",
+    marginBottom: 20,
   },
   streakCard: {
     minWidth: 180,
