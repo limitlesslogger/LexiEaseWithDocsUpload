@@ -6,6 +6,11 @@ import {
   SearchablePaginatedTable,
 } from "../components/SearchablePaginatedList";
 import { downloadReportCsv } from "../utils/reportExport";
+import {
+  describeLetterProgress,
+  describeTrend,
+  deriveTrendFromAttempts,
+} from "../utils/reportInsights";
 
 const TABS = ["summary", "letters", "words", "sentences"];
 
@@ -158,6 +163,7 @@ export default function StudentReportsPage() {
 
       {!loading && selectedTab === "letters" && reportData ? (
         <div style={styles.section}>
+          <InsightCard text={describeLetterProgress(reportData.letters || [])} />
           <SearchablePaginatedBlocks
             items={reportData.letters || []}
             getSearchText={(item) => `${item.letter} ${item.strength} ${item.attempts}`}
@@ -180,6 +186,9 @@ export default function StudentReportsPage() {
 
       {!loading && selectedTab === "words" && reportData ? (
         <div style={styles.section}>
+          <InsightCard
+            text={describeTrend(reportData.combined?.trend, "Word accuracy")}
+          />
           <div style={styles.grid}>
             <MetricCard
               title="Combined Accuracy"
@@ -215,6 +224,12 @@ export default function StudentReportsPage() {
 
       {!loading && selectedTab === "sentences" && reportData ? (
         <div style={styles.section}>
+          <InsightCard
+            text={describeTrend(
+              deriveTrendFromAttempts(reportData.attempts || []),
+              "Sentence accuracy"
+            )}
+          />
           <div style={styles.grid}>
             <MetricCard
               title="Sentence Accuracy"
@@ -261,6 +276,10 @@ function MetricCard({ title, value, detail, tone }) {
       <div style={styles.cardDetail}>{detail}</div>
     </div>
   );
+}
+
+function InsightCard({ text }) {
+  return <div style={styles.insightCard}>{text}</div>;
 }
 
 function capitalize(value) {
@@ -366,6 +385,15 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: 20,
+  },
+  insightCard: {
+    background: "#f0fdf4",
+    border: "1px solid #bbf7d0",
+    color: "#166534",
+    borderRadius: 16,
+    padding: "14px 16px",
+    lineHeight: 1.6,
+    fontWeight: 500,
   },
   grid: {
     display: "grid",

@@ -6,6 +6,11 @@ import {
   SearchablePaginatedTable,
 } from "../components/SearchablePaginatedList";
 import { downloadReportCsv } from "../utils/reportExport";
+import {
+  describeLetterProgress,
+  describeTrend,
+  deriveTrendFromAttempts,
+} from "../utils/reportInsights";
 
 /* Helper: Format time ago */
 function getTimeAgo(date) {
@@ -429,6 +434,9 @@ export default function GuardianStudentDetail() {
       {selectedReport === "letters" && reportData && (
         <div style={styles.reportSection}>
           <h2 style={{...styles.reportTitle, borderBottomColor: currentColor}}>Letters Report</h2>
+          <div style={styles.insightCard}>
+            {describeLetterProgress(reportData.letters || [])}
+          </div>
 
           {/* strength overview grid + legend */}
           <div style={styles.card}>
@@ -603,7 +611,9 @@ export default function GuardianStudentDetail() {
               <StatCard icon="🔡" label="Multi-Letter Rate" value={wordRate ? `${wordRate}%` : "—"} sub={wdM?.overview?.totalAttempts ? `${wdM.overview.totalAttempts} attempts` : "No sessions"} color="#b45309" />
             </div>
 
-            {/* no trend callout in guardian words */}
+            <div style={styles.insightCard}>
+              {describeTrend(similarTrend, "Word accuracy")}
+            </div>
             <div style={styles.twoColumnGrid}>
               {allProblemWords.length > 0 && (
                 <div style={styles.card}>
@@ -717,6 +727,10 @@ export default function GuardianStudentDetail() {
               <StatCard icon="⚡" label="Avg Accuracy" value={`${m.avgAccuracy}%`} color="#f59e0b" />
               <StatCard icon="⏱️" label="Avg Response" value={`${(m.avgResponse/1000).toFixed(1)}s`} color="#3b82f6" />
               <StatCard icon="✅" label="Total Attempts" value={m.total} color="#10b981" />
+            </div>
+
+            <div style={styles.insightCard}>
+              {describeTrend(deriveTrendFromAttempts(reportData.attempts || []), "Sentence accuracy")}
             </div>
 
             {/* trend card */}
@@ -1121,6 +1135,16 @@ const styles = {
     padding: "12px 0",
     borderBottom: "3px solid",
     display: "inline-block",
+  },
+  insightCard: {
+    background: "#f0fdf4",
+    border: "1px solid #bbf7d0",
+    color: "#166534",
+    borderRadius: 16,
+    padding: "14px 16px",
+    lineHeight: 1.6,
+    fontWeight: 500,
+    marginBottom: 20,
   },
   reportStats: {
     display: "grid",

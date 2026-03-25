@@ -989,6 +989,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/api";
 import { SearchablePaginatedTable } from "../components/SearchablePaginatedList";
 import { downloadReportCsv } from "../utils/reportExport";
+import {
+  describeLetterProgress,
+  describeTrend,
+  deriveTrendFromAttempts,
+} from "../utils/reportInsights";
 
 /* Helper: Format time ago */
 function getTimeAgo(date) {
@@ -1605,6 +1610,9 @@ export default function TherapistStudentDetail() {
         return (
           <div style={styles.reportSection}>
             <h2 style={styles.reportTitle}>Letters Report</h2>
+            <div style={styles.insightCard}>
+              {describeLetterProgress(letters)}
+            </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1.35fr .65fr", gap: 16, marginBottom: 20 }}>
               <div style={styles.card}>
@@ -1672,6 +1680,9 @@ export default function TherapistStudentDetail() {
         return (
           <div style={styles.reportSection}>
             <h2 style={styles.reportTitle}>Words Report</h2>
+            <div style={styles.insightCard}>
+              {describeTrend(cmb?.trend, "Word accuracy")}
+            </div>
 
             <div style={styles.wordSummaryGrid}>
               <div style={styles.wordsMetricCard}> 
@@ -1749,6 +1760,9 @@ export default function TherapistStudentDetail() {
       {selectedReport === "sentences" && reportData && (
         <div style={styles.reportSection}>
           <h2 style={styles.reportTitle}>Sentences Report</h2>
+          <div style={styles.insightCard}>
+            {describeTrend(deriveTrendFromAttempts(reportData.attempts || []), "Sentence accuracy")}
+          </div>
 
           <div style={styles.wordSummaryGrid}>
             <div style={styles.summaryCard}>
@@ -2317,6 +2331,16 @@ const styles = {
     padding: "12px 0",
     borderBottom: "3px solid #3b82f6",
     display: "inline-block",
+  },
+  insightCard: {
+    background: "#f0fdf4",
+    border: "1px solid #bbf7d0",
+    color: "#166534",
+    borderRadius: 16,
+    padding: "14px 16px",
+    lineHeight: 1.6,
+    fontWeight: 500,
+    marginBottom: 20,
   },
   card: {
     background: "white",
