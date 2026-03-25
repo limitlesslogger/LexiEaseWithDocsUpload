@@ -7,7 +7,10 @@ import {
   getStudentSentenceReport,
   getStudentLetterReport,
   assignStudentToTherapist,
-  removeStudentFromTherapist
+  removeStudentFromTherapist,
+  downloadStudentLetterReport,
+  downloadStudentWordReport,
+  downloadStudentSentenceReport
 } from "../controllers/therapistController.js";
 import { protect, authorizeRoles, canAccessStudent } from "../middleware/authMiddleware.js";
 
@@ -39,5 +42,10 @@ router.post("/students/assign", assignStudentToTherapist);
 
 // Remove student from therapist
 router.delete("/students/:studentId", removeStudentFromTherapist);
+
+// Download student reports
+router.get("/students/:studentId/report/letters/download", canAccessStudent, downloadStudentLetterReport);
+router.get("/students/:studentId/report/words/download", canAccessStudent, downloadStudentWordReport);
+router.get("/students/:studentId/report/sentences/download", canAccessStudent, downloadStudentSentenceReport);
 
 export default router;

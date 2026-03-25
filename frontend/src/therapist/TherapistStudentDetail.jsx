@@ -986,7 +986,7 @@
 //     padding: 16,
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { apiFetch } from "../api/api";
+import { apiFetch, downloadStudentReport } from "../api/api";
 import { SearchablePaginatedTable } from "../components/SearchablePaginatedList";
 
 /* Helper: Format time ago */
@@ -1582,7 +1582,15 @@ export default function TherapistStudentDetail() {
 
         return (
           <div style={styles.reportSection}>
-            <h2 style={styles.reportTitle}>Letters Report</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h2 style={styles.reportTitle}>Letters Report</h2>
+              <button
+                onClick={() => downloadStudentReport(studentId, 'letters', timeframe)}
+                style={styles.downloadBtn}
+              >
+                📄 Download Report
+              </button>
+            </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1.35fr .65fr", gap: 16, marginBottom: 20 }}>
               <div style={styles.card}>
@@ -1649,7 +1657,15 @@ export default function TherapistStudentDetail() {
 
         return (
           <div style={styles.reportSection}>
-            <h2 style={styles.reportTitle}>Words Report</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h2 style={styles.reportTitle}>Words Report</h2>
+              <button
+                onClick={() => downloadStudentReport(studentId, 'words', timeframe)}
+                style={styles.downloadBtn}
+              >
+                📄 Download Report
+              </button>
+            </div>
 
             <div style={styles.wordSummaryGrid}>
               <div style={styles.wordsMetricCard}> 
@@ -1726,7 +1742,15 @@ export default function TherapistStudentDetail() {
       {/* Sentences Report */}
       {selectedReport === "sentences" && reportData && (
         <div style={styles.reportSection}>
-          <h2 style={styles.reportTitle}>Sentences Report</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <h2 style={styles.reportTitle}>Sentences Report</h2>
+            <button
+              onClick={() => downloadStudentReport(studentId, 'sentences', timeframe)}
+              style={styles.downloadBtn}
+            >
+              📄 Download Report
+            </button>
+          </div>
 
           <div style={styles.wordSummaryGrid}>
             <div style={styles.summaryCard}>
@@ -2135,6 +2159,19 @@ const styles = {
     fontWeight: 500,
     marginBottom: 16,
     fontSize: 14,
+  },
+  downloadBtn: {
+    background: "#10b981",
+    color: "white",
+    border: "none",
+    padding: "10px 16px",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontWeight: 500,
+    fontSize: 14,
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
   },
   studentHeader: {
     display: "flex",
